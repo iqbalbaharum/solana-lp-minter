@@ -22,8 +22,14 @@ export const createSolPairPoolInstruction = async (
         marketId: input.targetMarketId,
         programId: PROGRAMIDS.OPENBOOK_MARKET,
       },
-      baseMintInfo: input.baseToken,
-      quoteMintInfo: DEFAULT_TOKEN.WSOL,
+      baseMintInfo: {
+        mint: input.baseToken.mint,
+        decimals: input.baseToken.decimals,
+      },
+      quoteMintInfo: {
+        mint: DEFAULT_TOKEN.WSOL.mint,
+        decimals: DEFAULT_TOKEN.WSOL.decimals,
+      },
       baseAmount: input.addBaseAmount,
       quoteAmount: input.addQuoteAmount,
       startTime: new BN(Math.floor(input.startTime)),

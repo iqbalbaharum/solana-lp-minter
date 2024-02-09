@@ -20,7 +20,7 @@ export const wallet = Keypair.fromSecretKey(
   bs58.decode(process.env.WALLET_PRIVATE_KEY!)
 );
 
-export const connection = new Connection(clusterApiUrl('mainnet-beta'));
+export const connection = new Connection(rpcUrl);
 
 export const PROGRAMIDS = MAINNET_PROGRAM_ID;
 

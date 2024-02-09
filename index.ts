@@ -38,6 +38,7 @@ import {
   makeTxVersion,
   DEFAULT_TOKEN,
   wallet,
+  rpcUrl,
 } from './utils/config';
 import { BN } from 'bn.js';
 import { createTokenInput } from './interface';
@@ -108,7 +109,7 @@ const createWSOLTA = async (amount: number) => {
 };
 
 const createToken = async (input: createTokenInput) => {
-  const umi = createUmi(clusterApiUrl('mainnet-beta'));
+  const umi = createUmi(rpcUrl);
 
   const userWallet = umi.eddsa.createKeypairFromSecretKey(
     bs58.decode(process.env.WALLET_PRIVATE_KEY!)
@@ -151,8 +152,8 @@ const createToken = async (input: createTokenInput) => {
   try {
     const decimals = 9;
     const tokenAAmount = 1000000000;
-    const minWsol = 1;
-    const quoteBaseSize = 0.1;
+    const minWsol = 1.5;
+    const quoteBaseSize = 0.5;
     console.log(`Public Key..${wallet.publicKey}`);
 
     console.log(`Topup WSOL account to make up to ${minWsol} WSOL`);
@@ -163,7 +164,7 @@ const createToken = async (input: createTokenInput) => {
     //   amount: tokenAAmount,
     //   decimals: decimals,
     // });
-    let mint = new PublicKey('5QZ2JVsBqKfhcKg3oHivtoiDCUeXcC3oeAiAFcovKUdg');
+    let mint = new PublicKey('9FJNwxkgurqh6tH3832Dp3q4AoaBsC1hQgh6DUEtUYB7');
 
     // Revoke authorities
     // await revokeTokenAuthorities(mint);
@@ -171,8 +172,8 @@ const createToken = async (input: createTokenInput) => {
     // 3. Create Pool
     const mintToken = new Token(TOKEN_PROGRAM_ID, mint, decimals);
 
-    const targetMarketId = Keypair.generate();
-    console.log(`PUBLIC KEY: `, targetMarketId.publicKey.toBase58());
+    // const targetMarketId = Keypair.generate();
+
     // console.log(`PRIVATE KEY: `, targetMarketId.secretKey.toString());
 
     let walletTokenAccounts = await getWalletTokenAccount(
@@ -180,26 +181,32 @@ const createToken = async (input: createTokenInput) => {
       wallet.publicKey
     );
 
+    let { instructions: createMarketInstruction, address } =
+      await createSolPairMarket({
+        baseToken: mintToken,
+        tickSize: Number.parseFloat('0.001'),
+        lotSize: Number.parseFloat('0.001'),
+      });
+
+    const targetMarketId = address.marketId;
+    console.log(`MARKET ID: `, targetMarketId.toBase58());
+
     let { instructions: createPoolInstruction } =
       await createSolPairPoolInstruction({
         addBaseAmount: new BN(tokenAAmount).mul(new BN(10 ** decimals)),
         addQuoteAmount: new BN(quoteBaseSize * LAMPORTS_PER_SOL),
         baseToken: mintToken,
-        targetMarketId: targetMarketId.publicKey,
+        targetMarketId: targetMarketId,
         startTime: Math.floor(Date.now() / 1000),
         walletTokenAccounts,
       });
-
-    let { instructions: createMarketInstruction } = await createSolPairMarket({
-      baseToken: mintToken,
-      tickSize: 0.001,
-      lotSize: 0.001,
-    });
 
     await buildAndSendTx([
       ...createMarketInstruction,
       ...createPoolInstruction,
     ]);
+
+    return;
 
     /** TESTING ONLY (LTX token) */
     // const targetMarketId = new PublicKey(
@@ -209,9 +216,7 @@ const createToken = async (input: createTokenInput) => {
     // const mintToken = new Token(TOKEN_PROGRAM_ID, mint, 8);
     /** END TESTING */
 
-    const targetPoolInfo = await formatAmmKeysById(
-      targetMarketId.publicKey.toBase58()
-    );
+    const targetPoolInfo = await formatAmmKeysById(targetMarketId.toBase58());
     if (!targetPoolInfo) {
       throw new Error('cannot find the target pool');
     }
@@ -221,7 +226,7 @@ const createToken = async (input: createTokenInput) => {
     // 4. Add Liquidity to Pool
     let { instructions: addLiquidityInstructions } =
       await ammAddSolPairLiquidityInstruction({
-        targetPool: targetMarketId.publicKey.toBase58(),
+        targetPool: targetMarketId.toBase58(),
         inputSolAmount: new BN(quoteBaseSize * 10 ** 9),
         mint: mintToken,
         slippage: new Percent(1, 100),
@@ -230,10 +235,7 @@ const createToken = async (input: createTokenInput) => {
         targetPoolInfo,
       });
 
-    const instructions = [
-      // ...createPoolInstruction,
-      ...addLiquidityInstructions,
-    ];
+    const instructions = [...addLiquidityInstructions];
 
     let txids = await buildAndSendTx(instructions);
 
@@ -252,7 +254,7 @@ const createToken = async (input: createTokenInput) => {
     let { instructions: removeLiquidityInstructions } =
       await ammRemoveLiquidityInstruction({
         removeLpTokenAmount: tokenAmount,
-        targetPool: targetMarketId.publicKey.toBase58(),
+        targetPool: targetMarketId.toBase58(),
         walletTokenAccounts,
         poolKeys,
       });

@@ -233,8 +233,8 @@ const makeCreateMarketInstruction = async ({
       basePubkey: wallet,
       seed: marketInfo.requestQueue.seed,
       newAccountPubkey: marketInfo.requestQueue.publicKey,
-      lamports: await connection.getMinimumBalanceForRentExemption(764 + 12),
-      space: 764 + 12,
+      lamports: await connection.getMinimumBalanceForRentExemption(63),
+      space: 63,
       programId: marketInfo.programId,
     }),
     SystemProgram.createAccountWithSeed({
@@ -242,8 +242,8 @@ const makeCreateMarketInstruction = async ({
       basePubkey: wallet,
       seed: marketInfo.eventQueue.seed,
       newAccountPubkey: marketInfo.eventQueue.publicKey,
-      lamports: await connection.getMinimumBalanceForRentExemption(11308 + 12),
-      space: 11308 + 12,
+      lamports: await connection.getMinimumBalanceForRentExemption(128),
+      space: 128,
       programId: marketInfo.programId,
     }),
     SystemProgram.createAccountWithSeed({
@@ -251,8 +251,8 @@ const makeCreateMarketInstruction = async ({
       basePubkey: wallet,
       seed: marketInfo.bids.seed,
       newAccountPubkey: marketInfo.bids.publicKey,
-      lamports: await connection.getMinimumBalanceForRentExemption(14524 + 12),
-      space: 14524 + 12,
+      lamports: await connection.getMinimumBalanceForRentExemption(201),
+      space: 201,
       programId: marketInfo.programId,
     }),
     SystemProgram.createAccountWithSeed({
@@ -326,18 +326,45 @@ const makeCreateMarketInstruction = async ({
 };
 
 export const createSolPairMarket = async (input: CreateMarketTxInputInfo) => {
-  const createMarketInstruments = await makeCreateMarketInstructionSimple({
+  console.log({
     connection,
     wallet: wallet.publicKey,
-    baseInfo: input.baseToken,
-    quoteInfo: DEFAULT_TOKEN.WSOL,
+    baseInfo: {
+      mint: input.baseToken.mint,
+      decimals: input.baseToken.decimals,
+    },
+    quoteInfo: {
+      mint: DEFAULT_TOKEN.WSOL.mint,
+      decimals: DEFAULT_TOKEN.WSOL.decimals,
+    },
     lotSize: input.lotSize,
     tickSize: input.tickSize,
     dexProgramId: PROGRAMIDS.OPENBOOK_MARKET,
     makeTxVersion,
+    lookupTableCache: {},
   });
 
+  const { innerTransactions, address } =
+    await makeCreateMarketInstructionSimple({
+      connection,
+      wallet: wallet.publicKey,
+      baseInfo: {
+        mint: input.baseToken.mint,
+        decimals: input.baseToken.decimals,
+      },
+      quoteInfo: {
+        mint: DEFAULT_TOKEN.WSOL.mint,
+        decimals: DEFAULT_TOKEN.WSOL.decimals,
+      },
+      lotSize: input.lotSize,
+      tickSize: input.tickSize,
+      dexProgramId: PROGRAMIDS.OPENBOOK_MARKET,
+      makeTxVersion,
+      lookupTableCache: {},
+    });
+
   return {
-    instructions: createMarketInstruments.innerTransactions,
+    instructions: innerTransactions,
+    address,
   };
 };
